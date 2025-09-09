@@ -19,6 +19,7 @@ use kata_sys_util::{mount::get_mount_path, spec::load_oci_spec};
 use kata_types::{
     annotations::Annotation, config::default::DEFAULT_GUEST_DNS_FILE, config::TomlConfig,
 };
+use nix::libc;
 #[cfg(feature = "linux")]
 use linux_container::LinuxContainer;
 use logging::FILTER_RULE;
@@ -348,6 +349,15 @@ impl RuntimeHandlerManager {
                 }
                 break;
             }
+        }
+
+            // If no network namespace is specified (e.g., hostNetwork: true case),
+            // use the host's network namespace for remote hypervisor
+            if netns.is_none() {
+                // For remote hypervisor with hostNetwork, use init process's network namespace
+            // This is more stable than using the current process's netns
+            let host_netns = "/proc/1/ns/net".to_string();
+            netns = Some(host_netns);
         }
 
         let network_env = SandboxNetworkEnv {
